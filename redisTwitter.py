@@ -9,50 +9,46 @@ import redis
 # - Users login
 # - Create user
 
-r = redis.Redis(host='localhost', port=6379, db = 0)
-
-# r.flushdb()
-
-
 
 def login():
     for i in range(3):
-        username = input("Enter your username: ")
-        password = input("Enter your password: ")
-        if r.hget("users", username).decode("utf-8") == password:
+        print("============ LOG IN ============")
+        username = input("Enter your username:\n")
+        password = input("Enter your password:\n")
+        if r.hget("users", username) == password.encode('utf-8'):
             return True
-        print("Incorrect password")
-    if "y" == input("You have exceeded the number of attempts. Do you want to register? (y/n)").lower():
-        register()
+        print("\nIncorrect password")
+        print("================================\n")
+    if "y" == input("\nYou have exceeded the number of attempts. Do you want to register? (y/n)\n").lower():
+        return register()
     else:
         return False
 
 def register():
     while True:
-        username = input("Enter your username: ")
+        print("=========== REGISTER ===========")
+        username = input("Enter your username:\n")
+        password = input("Enter your password:\n")
         if not r.hexists("users", username):
-            password = input("Enter your password: ")
             r.hset("users", username, password)
             return True
-        print("This username already exists!")
+        if "y" == input("\nThis username already exists!. Do you want to log in? (y/n)\n").lower():
+            return login()
+        print("================================\n")
 
 def twitter():
-    print()
+    print("============ TWITTER ============")
     
 def controller():
-    print()
-    # Validad login o registro
-        # Si verdadero: Pasarlo a la app twitter
-    # Si falso, salirse
+    print("============= MENU =============")
+    print("Select option: "
+          "\n\t1) Log In"
+          "\n\t2) Register")
+    option = int(input())
+    validation = login() if option == 1 else register()
+    print("================================\n")
+    if validation:
+        twitter()
 
-
-
-
-# print("1: Login\n2: Create user")
-
-
-
-# print(r.keys('*'))
-# print(r.keys('*'))
-# r.set('Hello', 'World')
-# print(r.get('Hello').decode('utf-8'))
+r = redis.Redis(host='localhost', port=6379, db = 1)
+controller()
