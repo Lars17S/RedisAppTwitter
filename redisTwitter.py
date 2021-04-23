@@ -94,7 +94,11 @@ def checkSubsTweets(username:str):
     rb.subscribe(subsChannel)
 
     for item in rb.listen():
-        print(item)
+        x = item['channel'].decode('utf-8').split(':')
+        y = item['data']
+        if(y!=1):
+            print(x[0]+" just tweet: "+y.decode('utf-8'))
+        #print(item)
         if stop_threads:
             print(color.RED + "Gina me matoooooo X|" + color.END)
             break
@@ -136,7 +140,7 @@ def controller():
     login() if option == 1 else register()
 
 stop_threads = False
-r = redis.Redis(host='localhost', port=6379, db = 1)
+r = redis.Redis(host='localhost', port=6379, db=1)
 r.sadd("sebas:Subs", "efrenbbprecioso")
 # r.flushall()
 controller()
