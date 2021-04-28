@@ -47,19 +47,28 @@ def register():
             return twitter(username)
         if "y" == input(color.YELLOW+"\nThis username already exists!. Do you want to log in? (y/n)\n"+color.END).lower():
             return login()
+
 def tweet(username:str):
     tweet = input("What's happening?:\n")
     r.lpush(username+":Tweets",tweet)
+    followers = getFollowers(username)
+    message = username + ": " + tweet
+    for follow in followers:
+        r.lpush(follow+":Home", message)
+        if r.llen(follow+":Home") > 30:
+            r.rpop(follow+":Home")
     r.publish(username+':Channel', tweet)
 
 def follow(username: str):
     followTo = input("Who do you want to follow?\n")
     if not r.hexists("users", followTo):
         print("This user does not exist")
-    elif not r.sadd(username+":Subs", followTo):
+    elif r.sismember(username+":Subs", followTo):
         print("You already follow "+ followTo)
     else:
+        r.sadd(username + ":Subs", followTo)
         r.sadd(followTo + ":Followers", username)
+        rb.subscribe(*{followTo+":Channel"}, **{followTo+":Channel":custom_handler})
         print("Now you're following "+followTo)
 
 
@@ -85,35 +94,29 @@ def printSubs(username:str):
     for s in subs:
         print("-\t"+s)
 
-def checkSubsTweets(username:str):
-    global stop_threads
-    stop_threads = False
+def custom_handler(message):
+    user = message['channel'].decode('utf-8').split(':')[0]
+    msg = message['data'].decode('utf-8')
+    print("NOTIFICATION! " + user + " just tweet: " + msg)
+
+
+def eventNotification(username:str):
     subs = getSubs(username)
-    subsChannel = [x+":Channel" for x in subs]
-    rb = r.pubsub()
-    rb.subscribe(subsChannel)
+    rb.subscribe(*{'dummy:Channel'}, **{'dummy:Channel':custom_handler})
+    for sub in subs:
+        rb.subscribe(*{sub+":Channel"}, **{sub+":Channel":custom_handler})
+    return rb.run_in_thread(sleep_time=0.001)
 
-    for item in rb.listen():
-        x = item['channel'].decode('utf-8').split(':')
-        y = item['data']
-        if(y!=1):
-            print(x[0]+" just tweet: "+y.decode('utf-8'))
-        #print(item)
-        if stop_threads:
-            print(color.RED + "Gina me matoooooo X|" + color.END)
-            break
-    print(color.RED+"Finished"+color.END)
-
-def seeTimeline(username:str):
+def seeTimeline(username: str):
     print("\n======== Timeline =========")
-    global stop_threads
-    stop_threads = True
-    t = threading.Thread(target=checkSubsTweets, args=[username], daemon=True)
-    t.start()
-    print("sth2")
+    lastTweets = r.lrange(username+":Home", 0, -1)
+    lastTweets = [x.decode("utf-8") for x in lastTweets]
+    for tweet in lastTweets:
+        print(tweet)
 
 
 def twitter(username: str):
+    threadEvent = eventNotification(username)
     while True:
         print("\n============ TWITTER ============")
         print("Select an option "
@@ -129,7 +132,9 @@ def twitter(username: str):
         elif option==3: printFollowers(username)
         elif option==4: printSubs(username)
         elif option==5: seeTimeline(username)
-        else: return
+        else: 
+            threadEvent.stop()
+            exit()
     
 def controller():
     print("\n============= MENU =============")
@@ -139,8 +144,7 @@ def controller():
     option = int(input())
     login() if option == 1 else register()
 
-stop_threads = False
 r = redis.Redis(host='localhost', port=6379, db=1)
-r.sadd("sebas:Subs", "efrenbbprecioso")
+rb = r.pubsub()
 # r.flushall()
 controller()
